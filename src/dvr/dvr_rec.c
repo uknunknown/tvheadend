@@ -1088,7 +1088,7 @@ pvr_generate_filename(dvr_entry_t *de, const streaming_start_t *ss)
       j--;
     s[j] = '\0';
     snprintf(path + l, sizeof(path) - l, "%s", s);
-    snprintf(path + l + j, sizeof(path) - l + j, "/%s", filename);
+    snprintf(path + l + j, sizeof(path) - (l + j), "/%s", filename);
   }
 
   /* Substitute time formatters */
@@ -1567,6 +1567,7 @@ dvr_thread_rec_start(dvr_entry_t **_de, streaming_start_t *ss,
     /* Persist entry so we save the filename details to avoid orphan
      * files if we crash before the programme completes recording.
      */
+    de->de_rating_label = NULL;  //Forget the rating label pointer and only rely on the saved values from here on.
     dvr_entry_changed(de);
     htsp_dvr_entry_update(de);
     if(code == 0) {

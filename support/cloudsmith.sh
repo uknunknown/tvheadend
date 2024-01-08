@@ -39,11 +39,11 @@ if [[ -z $TARGET ]]; then
 fi
 
 case $OSPREFIX$TARGET in
-    bookworm|bullseye|buster|sid|stretch|jessie)
+    bookworm|bullseye|buster|sid|stretch|jessie|trixie)
         OS="debian";;
     bionic|focal|jammy|kinetic|impish|trusty|xenial)
         OS="ubuntu";;
-    raspiosbullseye|raspiosbuster|raspiosjessieraspiosstretch)
+    raspios*)
         OS="raspbian";;
     *) echo "OS $TARGET could not be recognized" && exit 1;;
 esac
