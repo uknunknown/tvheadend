@@ -142,13 +142,6 @@ static int
 _context_encode(TVHContext *self, AVFrame *avframe)
 {
     return (self->type->encode) ? self->type->encode(self, avframe) : 0;
-    /*int ret = -1;
-
-    if (!(ret = (self->type->encode) ? self->type->encode(self, avframe) : 0) &&
-        (self->helper && self->helper->encode)) {
-        ret = self->helper->encode(self, avframe);
-    }
-    return ret;*/
 }
 
 
@@ -213,6 +206,10 @@ tvh_context_setup(TVHContext *self, const AVCodec *iavcodec, const AVCodec *oavc
         !(self->oavframe = av_frame_alloc())) {
         tvh_stream_log(self->stream, LOG_ERR,
                        "failed to allocate AVCodecContext/AVFrame");
+        return -1;
+    }
+    if (!(self->avpkt = av_packet_alloc())) {
+        tvh_stream_log(self->stream, LOG_ERR, "failed to allocate AVPacket");
         return -1;
     }
     return 0;
@@ -309,16 +306,10 @@ tvh_context_ship(TVHContext *self, AVPacket *avpkt)
 static int
 tvh_context_receive_packet(TVHContext *self)
 {
-    AVPacket avpkt;
     int ret = -1;
 
-    memset(&avpkt, 0, sizeof(avpkt));
-    avpkt.pts = AV_NOPTS_VALUE;
-    avpkt.dts = AV_NOPTS_VALUE;
-    avpkt.pos = -1;
-
-    while ((ret = avcodec_receive_packet(self->oavctx, &avpkt)) != AVERROR(EAGAIN)) {
-        if (ret || (ret = tvh_context_ship(self, &avpkt))) {
+    while ((ret = avcodec_receive_packet(self->oavctx, self->avpkt)) != AVERROR(EAGAIN)) {
+        if (ret || (ret = tvh_context_ship(self, self->avpkt))) {
             break;
         }
     }
@@ -649,7 +640,6 @@ tvh_context_handle(TVHContext *self, th_pkt_t *pkt)
     int ret = 0;
     uint8_t *data = NULL;
     size_t size = 0;
-    AVPacket avpkt;
 
     if ((size = pktbuf_len(pkt->pkt_payload)) && pktbuf_ptr(pkt->pkt_payload)) {
         if (size >= TVH_INPUT_BUFFER_MAX_SIZE) {
@@ -661,11 +651,7 @@ tvh_context_handle(TVHContext *self, th_pkt_t *pkt)
             ret = AVERROR(ENOMEM);
         }
         else {
-            memset(&avpkt, 0, sizeof(avpkt));
-            avpkt.pts = AV_NOPTS_VALUE;
-            avpkt.dts = AV_NOPTS_VALUE;
-            avpkt.pos = -1;
-            if ((ret = av_packet_from_data(&avpkt, data, size))) { // takes ownership of data
+            if ((ret = av_packet_from_data(self->avpkt, data, size))) { // takes ownership of data
                 tvh_context_log(self, LOG_ERR,
                                 "failed to allocate AVPacket buffer");
                 av_freep(data);
@@ -675,12 +661,12 @@ tvh_context_handle(TVHContext *self, th_pkt_t *pkt)
                     pktbuf_ref_inc(pkt->pkt_meta);
                     self->input_gh = pkt->pkt_meta;
                 }
-                avpkt.pts = pkt->pkt_pts;
-                avpkt.dts = pkt->pkt_dts;
-                avpkt.duration = pkt->pkt_duration;
+                self->avpkt->pts = pkt->pkt_pts;
+                self->avpkt->dts = pkt->pkt_dts;
+                self->avpkt->duration = pkt->pkt_duration;
                 TVHPKT_SET(self->src_pkt, pkt);
-                ret = tvh_context_decode(self, &avpkt);
-                av_packet_unref(&avpkt); // will free data
+                ret = tvh_context_decode(self, self->avpkt);
+                av_packet_unref(self->avpkt); // will free data
             }
         }
     }
@@ -730,6 +716,10 @@ tvh_context_destroy(TVHContext *self)
         if (self->input_gh) {
             pktbuf_ref_dec(self->input_gh);
             self->input_gh = NULL;
+        }
+        if (self->avpkt) {
+            av_packet_free(&self->avpkt);
+            self->avpkt = NULL;
         }
         if (self->oavframe) {
             av_frame_free(&self->oavframe);

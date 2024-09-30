@@ -149,6 +149,7 @@ struct tvh_context {
     AVFrame *iavframe;
     AVFrame *oavframe;
     pktbuf_t *input_gh;
+    AVPacket *avpkt;
     TVHContextHelper *helper; // encoder helper
     AVFilterGraph *avfltgraph;
     AVFilterContext *iavfltctx;
