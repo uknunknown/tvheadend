@@ -246,14 +246,11 @@ tvh_audio_context_open_filters(TVHContext *self, AVDictionary **opts)
         "abuffer", source_args,                           // source
         filters,                                          // filters
         "abuffersink",                                    // sink
-#if LIBAVCODEC_VERSION_MAJOR < 61
 #if LIBAVCODEC_VERSION_MAJOR > 59
-        "channel_layouts", &self->oavctx->ch_layout.u.mask, // sink option: channel_layout
-        sizeof(self->oavctx->ch_layout.u.mask),
+// sinc options is not supported starting ffmpeg 7
 #else
         "channel_layouts", &self->oavctx->channel_layout, // sink option: channel_layout
         sizeof(self->oavctx->channel_layout),
-#endif
         "sample_fmts", &self->oavctx->sample_fmt,         // sink option: sample_fmt
         sizeof(self->oavctx->sample_fmt),
         "sample_rates", &self->oavctx->sample_rate,       // sink option: sample_rate

@@ -102,7 +102,9 @@ _context_print_opts(TVHContext *self, AVDictionary *opts)
 }
 
 
-#if LIBAVCODEC_VERSION_MAJOR < 61
+#if LIBAVCODEC_VERSION_MAJOR > 59
+// this function is not needed starting ffmpeg 7
+#else
 static int
 _context_filters_apply_sink_options(TVHContext *self, va_list ap)
 {
@@ -560,7 +562,9 @@ tvh_context_open_filters(TVHContext *self,
         goto finish;
     }
 
-#if LIBAVCODEC_VERSION_MAJOR < 61
+#if LIBAVCODEC_VERSION_MAJOR > 59
+// sinc options is not supported starting ffmpeg 7
+#else
     // sink options
     va_list ap;
     va_start(ap, sink_name);
