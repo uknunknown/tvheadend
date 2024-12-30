@@ -278,14 +278,7 @@ hwaccels_encode_close_context(AVCodecContext *avctx)
 enum AVPixelFormat
 hwaccels_get_pixfmt_format_for_filter(AVCodecContext *avctx)
 {
-    switch (avctx->pix_fmt) {
-#if ENABLE_VAAPI
-        case AV_PIX_FMT_VAAPI:
-            return avctx->pix_fmt;
-#endif
-        default:
-            return avctx->pix_fmt;
-    }
+    return avctx->pix_fmt;
 }
 #endif
 
