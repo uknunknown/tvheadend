@@ -282,7 +282,7 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
     char source_args[128];
     char *filters = NULL;
 
-#if ENABLE_NEW_TRANSCODING
+#if ENABLE_HWACCELS && ENABLE_NEW_TRANSCODING
     enum AVPixelFormat pix_fmt = hwaccels_get_pixfmt_format_for_filter(self->iavctx);
 #endif
 
@@ -292,7 +292,7 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
             "video_size=%dx%d:pix_fmt=%s:time_base=%d/%d:pixel_aspect=%d/%d",
             self->iavctx->width,
             self->iavctx->height,
-#if ENABLE_NEW_TRANSCODING
+#if ENABLE_HWACCELS && ENABLE_NEW_TRANSCODING
             av_get_pix_fmt_name(pix_fmt),
 #else
             av_get_pix_fmt_name(self->iavctx->pix_fmt),
