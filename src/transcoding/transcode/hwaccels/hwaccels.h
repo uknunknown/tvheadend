@@ -53,7 +53,7 @@ hwaccels_get_sharpness_filter(AVCodecContext *avctx, int value, char *filter, si
 /* encoding ================================================================= */
 #if ENABLE_NEW_TRANSCODING
 int
-hwaccels_initialize_encoder_from_decoder(AVCodecContext *iavctx, AVCodecContext *oavctx);
+hwaccels_initialize_encoder_from_decoder(const AVCodecContext *iavctx, AVCodecContext *oavctx);
 #endif
 
 int
@@ -68,7 +68,7 @@ hwaccels_encode_close_context(AVCodecContext *avctx);
 
 #if ENABLE_NEW_TRANSCODING
 enum AVPixelFormat
-hwaccels_get_pixfmt_format_for_filter(AVCodecContext *avctx);
+hwaccels_get_pixfmt_format_for_filter(const AVCodecContext *avctx);
 #endif
 
 /* module =================================================================== */
