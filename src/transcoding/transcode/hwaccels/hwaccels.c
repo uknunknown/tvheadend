@@ -213,13 +213,45 @@ hwaccels_get_sharpness_filter(AVCodecContext *avctx, int value, char *filter, si
 
 /* encoding ================================================================= */
 
+#if ENABLE_NEW_TRANSCODING
 int
+hwaccels_initialize_encoder_from_decoder(AVCodecContext *iavctx, AVCodecContext *oavctx)
+{
+    switch (iavctx->pix_fmt) {
+#if ENABLE_NEW_TRANSCODING
+        case AV_PIX_FMT_VAAPI:
+            /* we need to ref hw_frames_ctx of decoder to initialize encoder's codec.
+            Only after we get a decoded frame, can we obtain its hw_frames_ctx */
+            oavctx->hw_frames_ctx = av_buffer_ref(iavctx->hw_frames_ctx);
+            if (!oavctx->hw_frames_ctx) {
+                return AVERROR(ENOMEM);
+            }
+            return 0;
+        case AV_PIX_FMT_YUV420P:
+            break;
+#endif
+        default:
+            break;
+    }
+    return 0;
+}
+#endif
+
+int
+#if ENABLE_NEW_TRANSCODING
+hwaccels_encode_setup_context(AVCodecContext *avctx)
+#else
 hwaccels_encode_setup_context(AVCodecContext *avctx, int low_power)
+#endif
 {
     switch (avctx->pix_fmt) {
 #if ENABLE_VAAPI
         case AV_PIX_FMT_VAAPI:
+#if ENABLE_NEW_TRANSCODING
+            return vaapi_encode_setup_context(avctx);
+#else
             return vaapi_encode_setup_context(avctx, low_power);
+#endif
 #endif
         default:
             break;
@@ -242,6 +274,20 @@ hwaccels_encode_close_context(AVCodecContext *avctx)
     }
 }
 
+#if ENABLE_NEW_TRANSCODING
+enum AVPixelFormat
+hwaccels_get_pixfmt_format_for_filter(AVCodecContext *avctx)
+{
+    switch (avctx->pix_fmt) {
+#if ENABLE_VAAPI
+        case AV_PIX_FMT_VAAPI:
+            return avctx->pix_fmt;
+#endif
+        default:
+            return avctx->pix_fmt;
+    }
+}
+#endif
 
 /* module =================================================================== */
 

@@ -226,10 +226,37 @@ tvh_video_context_open_encoder(TVHContext *self, AVDictionary **opts)
 #if ENABLE_HWACCELS
     self->oavctx->coded_width = self->oavctx->width;
     self->oavctx->coded_height = self->oavctx->height;
-    if (hwaccels_encode_setup_context(self->oavctx, self->profile->low_power)) {
+#if ENABLE_NEW_TRANSCODING
+    // hwaccel is the user input for Hardware acceleration from Codec parameteres
+    int hwaccel = -1;
+    if ((hwaccel = tvh_codec_profile_video_get_hwaccel(self->profile)) < 0) {
         return -1;
     }
+    if (_video_filters_hw_pix_fmt(self->oavctx->pix_fmt)){
+        // encoder is hw accelerated
+        if (hwaccel) {
+            // decoder is hw accelerated 
+            // --> we initialize encoder from decoder as recomanded in: 
+            // ffmpeg-6.1.1/doc/examples/vaapi_transcode.c line 169
+            if (hwaccels_initialize_encoder_from_decoder(self->iavctx, self->oavctx)) {
+                return -1;
+            }
+        }
+        else {
+            // decoder is sw
+            // --> we initialize as recommended in:
+            // ffmpeg-6.1.1/doc/examples/vaapi_encode.c line 145
+            if (hwaccels_encode_setup_context(self->oavctx)) {
+#else
+                if (hwaccels_encode_setup_context(self->oavctx, self->profile->low_power)) {
 #endif
+                    return -1;
+                }
+#if ENABLE_NEW_TRANSCODING
+        }
+    }
+#endif
+#endif // from ENABLE_HWACCELS
 
     // XXX: is this a safe assumption?
     if (!self->iavctx->framerate.num) {
@@ -255,13 +282,21 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
     char source_args[128];
     char *filters = NULL;
 
+#if ENABLE_NEW_TRANSCODING
+    enum AVPixelFormat pix_fmt = hwaccels_get_pixfmt_format_for_filter(self->iavctx);
+#endif
+
     // source args
     memset(source_args, 0, sizeof(source_args));
     if (str_snprintf(source_args, sizeof(source_args),
             "video_size=%dx%d:pix_fmt=%s:time_base=%d/%d:pixel_aspect=%d/%d",
             self->iavctx->width,
             self->iavctx->height,
+#if ENABLE_NEW_TRANSCODING
+            av_get_pix_fmt_name(pix_fmt),
+#else
             av_get_pix_fmt_name(self->iavctx->pix_fmt),
+#endif
             self->iavctx->time_base.num,
             self->iavctx->time_base.den,
             self->iavctx->sample_aspect_ratio.num,
