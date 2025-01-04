@@ -274,13 +274,6 @@ hwaccels_encode_close_context(AVCodecContext *avctx)
     }
 }
 
-#if ENABLE_NEW_TRANSCODING
-enum AVPixelFormat
-hwaccels_get_pixfmt_format_for_filter(const AVCodecContext *avctx)
-{
-    return avctx->pix_fmt;
-}
-#endif
 
 /* module =================================================================== */
 

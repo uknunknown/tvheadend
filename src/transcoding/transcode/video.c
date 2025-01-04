@@ -282,21 +282,13 @@ tvh_video_context_open_filters(TVHContext *self, AVDictionary **opts)
     char source_args[128];
     char *filters = NULL;
 
-#if ENABLE_HWACCELS && ENABLE_NEW_TRANSCODING
-    enum AVPixelFormat pix_fmt = hwaccels_get_pixfmt_format_for_filter(self->iavctx);
-#endif
-
     // source args
     memset(source_args, 0, sizeof(source_args));
     if (str_snprintf(source_args, sizeof(source_args),
             "video_size=%dx%d:pix_fmt=%s:time_base=%d/%d:pixel_aspect=%d/%d",
             self->iavctx->width,
             self->iavctx->height,
-#if ENABLE_HWACCELS && ENABLE_NEW_TRANSCODING
-            av_get_pix_fmt_name(pix_fmt),
-#else
             av_get_pix_fmt_name(self->iavctx->pix_fmt),
-#endif
             self->iavctx->time_base.num,
             self->iavctx->time_base.den,
             self->iavctx->sample_aspect_ratio.num,
