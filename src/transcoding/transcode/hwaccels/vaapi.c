@@ -28,7 +28,41 @@
 
 #include <va/va.h>
 
+#if ENABLE_NEW_TRANSCODING
+typedef struct tvh_vaapi_context_t {
+    int width;
+    int height;
+    AVBufferRef *hw_device_ref;
+    AVBufferRef *hw_frame_ref;
+} TVHVAContext;
 
+
+static void
+tvhva_done()
+{
+    /* nothing to do */
+}
+
+
+/* TVHVAContext ============================================================= */
+
+static void
+tvhva_context_destroy(TVHVAContext *self)
+{
+    if (self) {
+        if (self->hw_device_ref) {
+            av_buffer_unref(&self->hw_device_ref);
+            self->hw_device_ref = NULL;
+        }
+        if (self->hw_frame_ref) {
+            av_buffer_unref(&self->hw_frame_ref);
+            self->hw_frame_ref = NULL;
+        }
+        free(self);
+        self = NULL;
+    }
+}
+#else
 typedef struct tvh_vaapi_device {
     char *hw_device_name;
     AVBufferRef *hw_device_ref;
@@ -568,6 +602,7 @@ tvhva_context_create(const char *logpref,
     }
     return self;
 }
+#endif
 
 
 /* decoding ================================================================= */
@@ -586,7 +621,34 @@ int
 vaapi_decode_setup_context(AVCodecContext *avctx)
 {
     TVHContext *ctx = avctx->opaque;
+#if ENABLE_NEW_TRANSCODING
+    TVHVAContext *self = NULL;
+    int ret = -1;
 
+    if (!(self = calloc(1, sizeof(TVHVAContext)))) {
+        tvherror(LS_VAAPI, "Decode: Failed to allocate qsv context (TVHVAContext)");
+        return AVERROR(ENOMEM);
+    }
+
+    /* Open VAAPI device and create an AVHWDeviceContext for it*/
+    if ((ret = av_hwdevice_ctx_create(&self->hw_device_ref, AV_HWDEVICE_TYPE_VAAPI, ctx->hw_accel_device, NULL, 0)) < 0) {
+        tvherror(LS_VAAPI, "Decode: Failed to Open VAAPI device and create an AVHWDeviceContext for device: "
+                            "%s with error code: %s", 
+                            ctx->hw_accel_device, av_err2str(ret));
+        return ret;
+    }
+
+    /* set hw_frames_ctx for decoder's AVCodecContext */
+    avctx->hw_device_ctx = av_buffer_ref(self->hw_device_ref);
+    if (!avctx->hw_device_ctx) {
+        tvherror(LS_VAAPI, "Decode: Failed to create a hardware device reference for device: %s.", 
+                        ctx->hw_accel_device);
+        return AVERROR(ENOMEM);
+    }
+    ctx->hw_accel_ictx = self;
+    avctx->get_buffer2 = vaapi_get_buffer2;
+    avctx->pix_fmt = AV_PIX_FMT_VAAPI;
+#else
     if (!(ctx->hw_accel_ictx =
           tvhva_context_create("decode", avctx, VAEntrypointVLD))) {
         return -1;
@@ -594,7 +656,7 @@ vaapi_decode_setup_context(AVCodecContext *avctx)
 
     avctx->get_buffer2 = vaapi_get_buffer2;
     avctx->thread_safe_callbacks = 0;
-
+#endif 
     return 0;
 }
 
@@ -604,6 +666,12 @@ vaapi_decode_close_context(AVCodecContext *avctx)
 {
     TVHContext *ctx = avctx->opaque;
 
+#if ENABLE_NEW_TRANSCODING
+    if (avctx->hw_device_ctx) {
+        av_buffer_unref(&avctx->hw_device_ctx);
+        avctx->hw_device_ctx = NULL;
+    }
+#endif
     tvhva_context_destroy(ctx->hw_accel_ictx);
 }
 
@@ -641,8 +709,70 @@ vaapi_get_sharpness_filter(AVCodecContext *avctx, int value, char *filter, size_
 }
 
 /* encoding ================================================================= */
+#if ENABLE_NEW_TRANSCODING
+// lifted from ffmpeg-6.1.1/doc/examples/vaapi_encode.c line 41
+static int set_hwframe_ctx(AVCodecContext *ctx, AVBufferRef *hw_device_ctx)
+{
+    AVBufferRef *hw_frames_ref;
+    AVHWFramesContext *frames_ctx = NULL;
+    int err = 0;
+
+    if (!(hw_frames_ref = av_hwframe_ctx_alloc(hw_device_ctx))) {
+        tvherror(LS_VAAPI, "Encode: Failed to create VAAPI frame context.");
+        return AVERROR(ENOMEM);
+    }
+    frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
+    frames_ctx->format    = AV_PIX_FMT_VAAPI;
+    frames_ctx->sw_format = AV_PIX_FMT_NV12;
+    frames_ctx->width     = ctx->width;
+    frames_ctx->height    = ctx->height;
+    frames_ctx->initial_pool_size = 20;
+    if ((err = av_hwframe_ctx_init(hw_frames_ref)) < 0) {
+        tvherror(LS_VAAPI, "Encode: Failed to initialize VAAPI frame context."
+                "Error code: %s",av_err2str(err));
+        av_buffer_unref(&hw_frames_ref);
+        return err;
+    }
+    ctx->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
+    if (!ctx->hw_frames_ctx) {
+        err = AVERROR(ENOMEM);
+        tvherror(LS_VAAPI, "Encode: Failed to create a hardware device reference."
+                "Error code: %s",av_err2str(err));
+    }
+    av_buffer_unref(&hw_frames_ref);
+    return err;
+}
+#endif
+
 
 int
+#if ENABLE_NEW_TRANSCODING
+vaapi_encode_setup_context(AVCodecContext *avctx)
+{
+    TVHContext *ctx = avctx->opaque;
+    TVHVAContext *self = NULL;
+    int ret = 0;
+
+    if (!(self = calloc(1, sizeof(TVHVAContext)))) {
+        tvherror(LS_VAAPI, "Encode: Failed to allocate VAAPI context (TVHVAContext)");
+        return AVERROR(ENOMEM);
+    }
+
+    /* Open VAAPI device and create an AVHWDeviceContext for it*/
+    if ((ret = av_hwdevice_ctx_create(&self->hw_frame_ref, AV_HWDEVICE_TYPE_VAAPI, NULL, NULL, 0)) < 0) {
+        tvherror(LS_VAAPI, "Encode: Failed to open VAAPI device and create an AVHWDeviceContext for it."
+                "Error code: %s",av_err2str(ret));
+        return ret;
+    }
+
+    /* set hw_frames_ctx for encoder's AVCodecContext */
+    if ((ret = set_hwframe_ctx(avctx, self->hw_frame_ref)) < 0) {
+        tvherror(LS_VAAPI, "Encode: Failed to set hwframe context."
+                "Error code: %s",av_err2str(ret));
+        return ret;
+    }
+    ctx->hw_frame_octx = av_buffer_ref(self->hw_frame_ref);
+#else
 vaapi_encode_setup_context(AVCodecContext *avctx, int low_power)
 {
     TVHContext *ctx = avctx->opaque;
@@ -665,6 +795,7 @@ vaapi_encode_setup_context(AVCodecContext *avctx, int low_power)
         return AVERROR(ENOMEM);
     }
     tvhva_context_destroy(hwaccel_context);
+#endif
     return 0;
 }
 
@@ -673,8 +804,21 @@ void
 vaapi_encode_close_context(AVCodecContext *avctx)
 {
     TVHContext *ctx = avctx->opaque;
+#if ENABLE_NEW_TRANSCODING
+    av_buffer_unref(&ctx->hw_frame_octx);
+    ctx->hw_frame_octx = NULL;
+    if (avctx->hw_device_ctx) {
+        av_buffer_unref(&avctx->hw_device_ctx);
+        avctx->hw_device_ctx = NULL;
+    }
+    if (avctx->hw_frames_ctx) {
+        av_buffer_unref(&avctx->hw_frames_ctx);
+        avctx->hw_frames_ctx = NULL;
+    }
+#else
     av_buffer_unref(&ctx->hw_device_octx);
     ctx->hw_device_octx = NULL;
+#endif
 }
 
 
