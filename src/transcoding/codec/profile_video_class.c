@@ -33,6 +33,26 @@ scaling_mode_get_list( void *o, const char *lang )
     return strtab2htsmsg(tab, 1, lang);
 }
 
+static htsmsg_t *
+hwaccel_get_list( void *o, const char *lang )
+{
+    static const struct strtab tab[] = {
+        { N_("disabled (software decoding)"),   HWACCEL_DISABLED},
+        { N_("auto (recommended)"),             HWACCEL_AUTO},
+#if ENABLE_VAAPI
+        { N_("force VAAPI"),                    HWACCEL_FORCE_VAAPI},
+#endif
+#if ENABLE_NVENC
+        { N_("force NVDEC"),                    HWACCEL_FORCE_NVDEC},
+#endif
+#if ENABLE_MMAL
+        { N_("force MMAL"),                     HWACCEL_FORCE_MMAL},
+#endif
+    };
+    return strtab2htsmsg(tab, 1, lang);
+}
+
+
 /* TVHCodec ================================================================= */
 
 static htsmsg_t *
@@ -207,12 +227,13 @@ const codec_profile_class_t codec_profile_video_class = {
                 .def.i    = 0,
             },
             {
-                .type     = PT_BOOL,
+                .type     = PT_INT,
                 .id       = "hwaccel",
                 .name     = N_("Hardware acceleration"),
                 .desc     = N_("Use hardware acceleration for decoding if available."),
                 .group    = 2,
                 .off      = offsetof(TVHVideoCodecProfile, hwaccel),
+                .list     = hwaccel_get_list,
                 .def.i    = 0,
             },
             {

@@ -119,6 +119,17 @@
     AV_DICT_SET_INT((d), "pix_fmt", ((v) != AV_PIX_FMT_NONE) ? (v) : (a), \
                     AV_DICT_DONT_OVERWRITE)
 
+#define HWACCEL_DISABLED    0
+#define HWACCEL_AUTO        1
+#if ENABLE_VAAPI
+#define HWACCEL_FORCE_VAAPI 2
+#endif
+#if ENABLE_NVENC
+#define HWACCEL_FORCE_NVDEC 3
+#endif
+#if ENABLE_MMAL
+#define HWACCEL_FORCE_MMAL  4
+#endif
 
 /* codec_profile_class ====================================================== */
 
