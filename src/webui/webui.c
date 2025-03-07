@@ -514,7 +514,7 @@ http_stream_run(http_connection_t *hc, profile_chain_t *prch,
     if(mux->m_errors) {
       if (!mux->m_eos)
         tvhwarn(LS_WEBUI,  "Stop streaming %s, muxer reported errors", hc->hc_url_orig);
-      run = 0;
+      //run = 0;
     }
   }
 
