@@ -399,6 +399,11 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   av_dict_set(&oc->metadata, "service_name", name, 0);
   av_dict_set(&oc->metadata, "service_provider", app, 0);
 
+  if(lm->m_config.m_type == MC_MPEGTS) {
+    av_dict_set(&opts, "mpegts_transport_stream_id", "0x0006", 0);
+    av_dict_set(&opts, "mpegts_service_id", "0x0601", 0);
+  }
+
   lm->bsf_h264_filter = av_bsf_get_by_name("h264_mp4toannexb");
   if (lm->bsf_h264_filter == NULL) {
     tvhwarn(LS_LIBAV,  "Failed to get BSF: h264_mp4toannexb");
