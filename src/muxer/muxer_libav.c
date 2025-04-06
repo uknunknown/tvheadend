@@ -395,9 +395,18 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
     tvherror(LS_LIBAV,  "Can't find the '%s' muxer", muxer_name);
     return -1;
   }
-  av_dict_set(&oc->metadata, "title", name, 0);
-  av_dict_set(&oc->metadata, "service_name", name, 0);
-  av_dict_set(&oc->metadata, "service_provider", app, 0);
+  if(lm->m_config.m_type == MC_MPEGTS) {
+    av_dict_set(&lm->lm_oc->metadata, "title", name, 0);
+    if (ss->ss_si.si_service)
+      av_dict_set(&lm->lm_oc->metadata, "service_name", ss->ss_si.si_service, 0);
+    if (ss->ss_si.si_provider)
+      av_dict_set(&lm->lm_oc->metadata, "service_provider", ss->ss_si.si_provider, 0);
+  }
+  else {
+    av_dict_set(&oc->metadata, "title", name, 0);
+    av_dict_set(&oc->metadata, "service_name", name, 0);
+    av_dict_set(&oc->metadata, "service_provider", app, 0);
+  }
 
   lm->bsf_h264_filter = av_bsf_get_by_name("h264_mp4toannexb");
   if (lm->bsf_h264_filter == NULL) {
