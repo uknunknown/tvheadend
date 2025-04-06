@@ -399,11 +399,6 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   av_dict_set(&oc->metadata, "service_name", name, 0);
   av_dict_set(&oc->metadata, "service_provider", app, 0);
 
-  if(lm->m_config.m_type == MC_MPEGTS) {
-    av_dict_set(&opts, "mpegts_transport_stream_id", "0x0006", 0);
-    av_dict_set(&opts, "mpegts_service_id", "0x0601", 0);
-  }
-
   lm->bsf_h264_filter = av_bsf_get_by_name("h264_mp4toannexb");
   if (lm->bsf_h264_filter == NULL) {
     tvhwarn(LS_LIBAV,  "Failed to get BSF: h264_mp4toannexb");
@@ -444,6 +439,28 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   if(lm->m_config.m_type == MC_AVMP4) {
     av_dict_set(&opts, "frag_duration", "1", 0);
     av_dict_set(&opts, "ism_lookahead", "0", 0);
+  }
+
+  if(lm->m_config.m_type == MC_MPEGTS) {
+    char mpegts_transport_stream_id[8];
+    snprintf(mpegts_transport_stream_id, sizeof(mpegts_transport_stream_id), "0x%04x", ss->ss_si.si_tsid);
+    //tvherror(LS_LIBAV,  "mpegts_transport_stream_id = %s", mpegts_transport_stream_id);
+    av_dict_set(&opts, "mpegts_transport_stream_id", mpegts_transport_stream_id, 0);
+    
+    char mpegts_pmt_start_pid[8];
+    snprintf(mpegts_pmt_start_pid, sizeof(mpegts_pmt_start_pid), "0x%04x", ss->ss_pmt_pid);
+    //tvherror(LS_LIBAV,  "mpegts_pmt_start_pid = %s", mpegts_pmt_start_pid);
+    av_dict_set(&opts, "mpegts_pmt_start_pid", mpegts_pmt_start_pid, 0);
+
+    char mpegts_start_pid[8];
+    snprintf(mpegts_start_pid, sizeof(mpegts_start_pid), "0x%04x", ss->ss_pcr_pid);
+    //tvherror(LS_LIBAV,  "mpegts_start_pid = %s", mpegts_start_pid);
+    av_dict_set(&opts, "mpegts_start_pid", mpegts_start_pid, 0);
+
+    //ss->ss_service_id;
+    av_dict_set(&opts, "mpegts_service_id", "0x0601", 0);
+
+    //av_dict_set(&opts, "metadata", "service_provider=\"TESTX\"", 0);
   }
 
   if(!lm->lm_oc->nb_streams) {
