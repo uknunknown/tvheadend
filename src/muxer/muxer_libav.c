@@ -355,7 +355,7 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   AVFormatContext *oc;
   AVDictionary *opts = NULL;
   lav_muxer_t *lm = (lav_muxer_t*)m;
-  char app[128];
+  //char app[128];
 #if LIBAVCODEC_VERSION_MAJOR > 58
   const AVOutputFormat *fmt;
 #else
@@ -364,7 +364,12 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   const char *muxer_name;
   int rc = -1;
 
-  snprintf(app, sizeof(app), "Tvheadend %s", tvheadend_version);
+  //snprintf(app, sizeof(app), "Tvheadend %s", tvheadend_version);
+  av_dict_set(&lm->lm_oc->metadata, "title", name, 0);
+  if (ss->ss_si.si_service)
+    av_dict_set(&lm->lm_oc->metadata, "service_name", ss->ss_si.si_service, 0);
+  if (ss->ss_si.si_provider)
+    av_dict_set(&lm->lm_oc->metadata, "service_provider", ss->ss_si.si_provider, 0);
 
   oc = lm->lm_oc;
 
@@ -395,18 +400,9 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
     tvherror(LS_LIBAV,  "Can't find the '%s' muxer", muxer_name);
     return -1;
   }
-  if(lm->m_config.m_type == MC_MPEGTS) {
-    av_dict_set(&lm->lm_oc->metadata, "title", name, 0);
-    if (ss->ss_si.si_service)
-      av_dict_set(&lm->lm_oc->metadata, "service_name", ss->ss_si.si_service, 0);
-    if (ss->ss_si.si_provider)
-      av_dict_set(&lm->lm_oc->metadata, "service_provider", ss->ss_si.si_provider, 0);
-  }
-  else {
-    av_dict_set(&oc->metadata, "title", name, 0);
-    av_dict_set(&oc->metadata, "service_name", name, 0);
-    av_dict_set(&oc->metadata, "service_provider", app, 0);
-  }
+  //av_dict_set(&oc->metadata, "title", name, 0);
+  //av_dict_set(&oc->metadata, "service_name", name, 0);
+  //av_dict_set(&oc->metadata, "service_provider", app, 0);
 
   lm->bsf_h264_filter = av_bsf_get_by_name("h264_mp4toannexb");
   if (lm->bsf_h264_filter == NULL) {
@@ -469,7 +465,10 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
     //ss->ss_service_id;
     av_dict_set(&opts, "mpegts_service_id", "0x0601", 0);
 
-    //av_dict_set(&opts, "metadata", "service_provider=\"TESTX\"", 0);
+    tvherror(LS_LIBAV,  "si_adapter = %s", ss->ss_si.si_adapter);
+    tvherror(LS_LIBAV,  "si_network = %s", ss->ss_si.si_network);
+    tvherror(LS_LIBAV,  "si_satpos = %s", ss->ss_si.si_satpos);
+    tvherror(LS_LIBAV,  "si_mux = %s", ss->ss_si.si_mux);
   }
 
   if(!lm->lm_oc->nb_streams) {
