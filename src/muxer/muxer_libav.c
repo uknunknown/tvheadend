@@ -321,6 +321,7 @@ lav_muxer_mime(muxer_t* m, const struct streaming_start *ss)
   
   has_audio = 0;
   has_video = 0;
+  
 
   for(i=0; i < ss->ss_num_components; i++) {
     ssc = &ss->ss_components[i];
@@ -462,8 +463,10 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
     //tvherror(LS_LIBAV,  "mpegts_start_pid = %s", mpegts_start_pid);
     av_dict_set(&opts, "mpegts_start_pid", mpegts_start_pid, 0);
 
-    //ss->ss_service_id;
-    av_dict_set(&opts, "mpegts_service_id", "0x0601", 0);
+    char mpegts_service_id[8];
+    snprintf(mpegts_service_id, sizeof(mpegts_service_id), "0x%04x", ss->ss_service_id);
+    //tvherror(LS_LIBAV,  "mpegts_service_id = %s", mpegts_service_id);
+    av_dict_set(&opts, "mpegts_service_id", mpegts_service_id, 0);
 
     tvherror(LS_LIBAV,  "si_adapter = %s", ss->ss_si.si_adapter);
     tvherror(LS_LIBAV,  "si_network = %s", ss->ss_si.si_network);
