@@ -356,7 +356,6 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   AVFormatContext *oc;
   AVDictionary *opts = NULL;
   lav_muxer_t *lm = (lav_muxer_t*)m;
-  //char app[128];
 #if LIBAVCODEC_VERSION_MAJOR > 58
   const AVOutputFormat *fmt;
 #else
@@ -365,12 +364,15 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   const char *muxer_name;
   int rc = -1;
 
-  //snprintf(app, sizeof(app), "Tvheadend %s", tvheadend_version);
   av_dict_set(&lm->lm_oc->metadata, "title", name, 0);
-  if (ss->ss_si.si_service)
+  if (ss->ss_si.si_service){
     av_dict_set(&lm->lm_oc->metadata, "service_name", ss->ss_si.si_service, 0);
-  if (ss->ss_si.si_provider)
+    tvhdebug(LS_LIBAV,  "service_name = %s", ss->ss_si.si_service);
+  }
+  if (ss->ss_si.si_provider){
     av_dict_set(&lm->lm_oc->metadata, "service_provider", ss->ss_si.si_provider, 0);
+    tvhdebug(LS_LIBAV,  "service_provider = %s", ss->ss_si.si_provider);
+  }
 
   oc = lm->lm_oc;
 
@@ -401,9 +403,6 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
     tvherror(LS_LIBAV,  "Can't find the '%s' muxer", muxer_name);
     return -1;
   }
-  //av_dict_set(&oc->metadata, "title", name, 0);
-  //av_dict_set(&oc->metadata, "service_name", name, 0);
-  //av_dict_set(&oc->metadata, "service_provider", app, 0);
 
   lm->bsf_h264_filter = av_bsf_get_by_name("h264_mp4toannexb");
   if (lm->bsf_h264_filter == NULL) {
@@ -448,25 +447,45 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
   }
 
   if(lm->m_config.m_type == MC_MPEGTS) {
-    char mpegts_transport_stream_id[8];
-    snprintf(mpegts_transport_stream_id, sizeof(mpegts_transport_stream_id), "0x%04x", ss->ss_si.si_tsid);
-    //tvherror(LS_LIBAV,  "mpegts_transport_stream_id = %s", mpegts_transport_stream_id);
-    av_dict_set(&opts, "mpegts_transport_stream_id", mpegts_transport_stream_id, 0);
-    
-    char mpegts_pmt_start_pid[8];
-    snprintf(mpegts_pmt_start_pid, sizeof(mpegts_pmt_start_pid), "0x%04x", ss->ss_pmt_pid);
-    //tvherror(LS_LIBAV,  "mpegts_pmt_start_pid = %s", mpegts_pmt_start_pid);
-    av_dict_set(&opts, "mpegts_pmt_start_pid", mpegts_pmt_start_pid, 0);
-
-    char mpegts_start_pid[8];
-    snprintf(mpegts_start_pid, sizeof(mpegts_start_pid), "0x%04x", ss->ss_pcr_pid);
-    //tvherror(LS_LIBAV,  "mpegts_start_pid = %s", mpegts_start_pid);
-    av_dict_set(&opts, "mpegts_start_pid", mpegts_start_pid, 0);
-
-    char mpegts_service_id[8];
-    snprintf(mpegts_service_id, sizeof(mpegts_service_id), "0x%04x", ss->ss_service_id);
-    //tvherror(LS_LIBAV,  "mpegts_service_id = %s", mpegts_service_id);
-    av_dict_set(&opts, "mpegts_service_id", mpegts_service_id, 0);
+    if (ss->ss_si.si_tsid) {
+      char mpegts_transport_stream_id[8];
+      snprintf(mpegts_transport_stream_id, sizeof(mpegts_transport_stream_id), "0x%04x", ss->ss_si.si_tsid);
+      tvhdebug(LS_LIBAV,  "mpegts_transport_stream_id = %s", mpegts_transport_stream_id);
+      av_dict_set(&opts, "mpegts_transport_stream_id", mpegts_transport_stream_id, 0);
+    }
+    if (ss->ss_si.si_type) {
+      char mpegts_service_type[8];
+      snprintf(mpegts_service_type, sizeof(mpegts_service_type), "0x%04x", ss->ss_si.si_type);
+      tvhdebug(LS_LIBAV,  "mpegts_service_type = %s", mpegts_service_type);
+      av_dict_set(&opts, "mpegts_service_type", mpegts_service_type, 0);
+    }
+    if (ss->ss_pmt_pid) {
+      char mpegts_pmt_start_pid[8];
+      snprintf(mpegts_pmt_start_pid, sizeof(mpegts_pmt_start_pid), "0x%04x", ss->ss_pmt_pid);
+      tvhdebug(LS_LIBAV,  "mpegts_pmt_start_pid = %s", mpegts_pmt_start_pid);
+      av_dict_set(&opts, "mpegts_pmt_start_pid", mpegts_pmt_start_pid, 0);
+    }
+    if (ss->ss_pcr_pid) {
+      char mpegts_start_pid[8];
+      snprintf(mpegts_start_pid, sizeof(mpegts_start_pid), "0x%04x", ss->ss_pcr_pid);
+      tvhdebug(LS_LIBAV,  "mpegts_start_pid = %s", mpegts_start_pid);
+      av_dict_set(&opts, "mpegts_start_pid", mpegts_start_pid, 0);
+    }
+    if (ss->ss_service_id) {
+      char mpegts_service_id[8];
+      snprintf(mpegts_service_id, sizeof(mpegts_service_id), "0x%04x", ss->ss_service_id);
+      tvhdebug(LS_LIBAV,  "mpegts_service_id = %s", mpegts_service_id);
+      av_dict_set(&opts, "mpegts_service_id", mpegts_service_id, 0);
+    }
+    if (ss->ss_si.si_onid) {
+      char mpegts_original_network_id[8];
+      snprintf(mpegts_original_network_id, sizeof(mpegts_original_network_id), "0x%04x", ss->ss_si.si_onid);
+      tvhdebug(LS_LIBAV,  "mpegts_original_network_id = %s", mpegts_original_network_id);
+      av_dict_set(&opts, "mpegts_original_network_id", mpegts_original_network_id, 0);
+    }
+    av_dict_set(&opts, "mpegts_flags", "nit", 0);
+    //av_dict_set(&opts, "tables_version", "30", 0);
+    av_dict_set(&opts, "mpegts_copyts", "1", 0);
 
     tvherror(LS_LIBAV,  "si_adapter = %s", ss->ss_si.si_adapter);
     tvherror(LS_LIBAV,  "si_network = %s", ss->ss_si.si_network);
