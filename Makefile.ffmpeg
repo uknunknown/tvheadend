@@ -63,6 +63,7 @@ LIBX265_TB     = $(LIBX265).tar.gz
 LIBX265_URL    = https://ftp.videolan.org/pub/videolan/x265/$(LIBX265_TB)
 LIBX265_SHA1   = 11880a3aa9e4ee618f539a2d6a8ece0ea442f505
 LIBX265_DIFFS  = libx265.pic.diff
+LIBX265_DIFFS  += libx265.CMake4.diff
 LIBX265_DIFFS  += libx265-silence.patch
 LIBX265_DIFFS  += libx265-substring.patch
 LIBX265_DIFFS  += libx265-armv9.patch
