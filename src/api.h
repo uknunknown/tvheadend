@@ -25,7 +25,6 @@
 #include "redblack.h"
 #include "access.h"
 
-/* 20: idnode numeric filter gained the ge / le / ne comparators */
 #define TVH_API_VERSION 20
 
 /*
